@@ -1,0 +1,116 @@
+name: Build MrBot
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Linux ──────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Compilar
+        run: bash build_linux.sh
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: mrbot-linux
+          path: Ejecutable/
+
+  # ── Windows ────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Compilar
+        run: powershell -ExecutionPolicy Bypass -File build_windows.ps1
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: mrbot-windows
+          path: Ejecutable/
+
+  # ── macOS ──────────────────────────────────────────────
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Compilar
+        run: bash build_mac.sh
+
+      - name: Subir artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: mrbot-mac
+          path: Ejecutable/
+
+  # ── Release (solo en tags) ─────────────────────────────
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-linux, build-windows, build-mac]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar artefactos
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Comprimir artefactos
+        run: |
+          cd artifacts
+          tar czf mrbot-linux.tar.gz -C mrbot-linux .
+          zip -r mrbot-windows.zip mrbot-windows/
+          tar czf mrbot-mac.tar.gz -C mrbot-mac .
+
+      - name: Crear Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/mrbot-linux.tar.gz
+            artifacts/mrbot-windows.zip
+            artifacts/mrbot-mac.tar.gz
